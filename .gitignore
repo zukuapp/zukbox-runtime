@@ -1,0 +1,6 @@
+/target
+node_modules
+/dist
+*.wasm.map
+.DS_Store
+Thumbs.db

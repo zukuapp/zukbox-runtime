@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    name: rust + wasm round-trip
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install Rust
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup target add wasm32-unknown-unknown
+          rustup component add rustfmt clippy
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Format
+        run: cargo fmt --all --check
+
+      - name: Clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Test (native)
+        run: cargo test --all-features
+
+      - name: Build wasm
+        run: cargo build --release --target wasm32-unknown-unknown -p zwf-runtime
+
+      # 산출물 크기는 첫 재생 지연에 직결된다. 소리 없이 커지는 것을 막는다.
+      - name: Check wasm size budget
+        run: |
+          BUDGET=$((128 * 1024))
+          SIZE=$(stat -c%s target/wasm32-unknown-unknown/release/zwf_runtime.wasm)
+          echo "zwf_runtime.wasm = ${SIZE} bytes (budget ${BUDGET})"
+          if [ "$SIZE" -gt "$BUDGET" ]; then
+            echo "::error::wasm exceeds the ${BUDGET} byte budget"
+            exit 1
+          fi
+
+      - name: Test (JS ↔ WASM round-trip)
+        run: node --test "js/**/*.test.mjs"
+
+      - uses: actions/upload-artifact@v5
+        with:
+          name: zwf_runtime.wasm
+          path: target/wasm32-unknown-unknown/release/zwf_runtime.wasm

@@ -1,0 +1,25 @@
+[workspace]
+resolver = "3"
+members = [
+    "crates/zwf-format",
+    "crates/zwf-runtime",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/zukuapp/zukbox-runtime"
+authors = ["ZUKBOX contributors"]
+
+[workspace.dependencies]
+zwf-format = { path = "crates/zwf-format", version = "0.1.0" }
+
+# .zwf 는 브라우저에 그대로 내려가는 바이너리다. 크기가 곧 첫 재생 지연이므로
+# 릴리스 프로파일은 속도보다 크기를 우선한다.
+[profile.release]
+opt-level = "z"
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+strip = true

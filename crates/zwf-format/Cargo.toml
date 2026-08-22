@@ -1,0 +1,19 @@
+[package]
+name = "zwf-format"
+description = "ZWF container format — header/chunk parsing and validation. no_std, allocation-light."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[lib]
+crate-type = ["rlib"]
+
+[features]
+default = []
+# 청크 페이로드 압축 해제. 끄면 파서는 RAW 청크만 다루고 바이너리가 더 작아진다.
+deflate = ["dep:miniz_oxide"]
+
+[dependencies]
+miniz_oxide = { version = "0.8", default-features = false, features = ["with-alloc"], optional = true }

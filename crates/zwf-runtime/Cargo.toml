@@ -1,0 +1,15 @@
+[package]
+name = "zwf-runtime"
+description = "ZWF WebAssembly runtime core — plain C ABI, no wasm-bindgen."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[lib]
+# cdylib: wasm32 산출물. rlib: 네이티브에서 ABI 를 그대로 테스트하기 위함.
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+zwf-format = { workspace = true, features = ["deflate"] }
