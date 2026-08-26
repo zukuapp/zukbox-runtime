@@ -52,6 +52,11 @@ ZUKBOX 에디터로 만든 작품은 `.zwf` 파일 하나로 배포된다. 이 �
 **DEFLATE 를 쓴다.** 브라우저 네이티브 `DecompressionStream("deflate-raw")` 로도
 풀 수 있어, WASM 없이도 파일을 검증할 수 있는 폴백 경로가 생긴다.
 
+**`unsafe`는 FFI 한 줄에만.** 파서(`zwf-format`)는 `forbid(unsafe_code)`.
+런타임의 `unsafe`는 JS↔WASM C ABI(`abi.rs`)에 격리 — wasm-bindgen 없이
+제로카피 버퍼를 넘기기 위함이며, UB를 “허용”하는 설계가 아니다.
+→ [`docs/safety-and-unsafe.md`](docs/safety-and-unsafe.md)
+
 ---
 
 ## 구조
@@ -65,7 +70,8 @@ js/
   zwf-writer.mjs  참조 인코더 (테스트 픽스처)
   zwf.test.mjs    JS ↔ WASM 왕복 검증
 docs/
-  zwf-format-v0.md  포맷 명세 — 이것이 단일 진실
+  zwf-format-v0.md       포맷 명세 — 이것이 단일 진실
+  safety-and-unsafe.md   unsafe/UB 경계 — 왜 ABI만 unsafe인지
 ```
 
 `zwf-format` 이 `no_std` 인 이유는 브라우저 WASM 과 네이티브 도구(에디터
@@ -129,13 +135,13 @@ file.close();   // WASM 메모리 회수
 ## 현재 상태
 
 - [x] 컨테이너 헤더·청크 파싱과 검증
-- [x] `STAG` 스테이지 조회
-- [x] C ABI 경계 + JS 로더
+- [x] `STAG` / `CHRS` / `MCLP` / `SHAP` / `BMAP` / `VIDS` 디코딩
+- [x] 타임라인 평가 (`zwf_eval_frame`)
+- [x] C ABI 경계 + JS 로더·플레이어·render-queue
 - [x] JS ↔ WASM 왕복 테스트
-- [ ] `CHRS` / `MCLP` 타임라인 디코딩
-- [ ] 렌더 큐 생성
-- [ ] Next2D 렌더러 워커 연결
-- [ ] `SNDS` / `VIDS` 동기
+- [x] 에디터 `.zwf` 퍼블리시 + Loader/render-queue 미리보기
+- [ ] Next2D 렌더 큐 **네이티브** 경로 (SHAP recodes 자동 디코딩)
+- [ ] `SNDS` 동기
 - [ ] `SIGN` Ed25519 검증
 
 ---
