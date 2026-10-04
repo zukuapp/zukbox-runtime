@@ -45,7 +45,7 @@ ZWF1 파일 → zwf-format (구조 검증·청크 파싱)
 
 ## 로컬 빌드와 테스트
 
-공개 npm 배포를 위한 패키지 이름은 `@zuku/zwf-runtime`, 버전은 `0.1.1`입니다.
+공개 npm 배포를 위한 패키지 이름은 `@zuku/zwf-runtime`, 버전은 `0.1.2`입니다.
 실제 게시 여부는 npm 레지스트리에서 확인하세요. 설치 패키지는 컴파일된 WASM을
 포함하므로 소비자에게 Rust나 설치 후 빌드를 요구하지 않습니다. 소스에서 빌드할
 때는 Node.js 22 이상, Rust와 `wasm32-unknown-unknown` 타깃이 필요합니다.
@@ -112,3 +112,5 @@ isolation remain host responsibilities; SIGNED is not signature verification.
 - [ZUKU 개발 문서](https://github.com/zukuapp/.github/blob/main/docs/README.md)
 
 코드의 라이선스는 [MIT](LICENSE)입니다.
+
+WASM 배포 빌드는 Rust의 경로 재매핑으로 빌드 호스트의 홈·작업 공간 경로를 제거하고 바이너리에서 재검사합니다. 0.1.2는 이 배포 처리의 패치이며 기존 ZWF1 형식과 JavaScript API는 같습니다. 공개 Rust 표준 라이브러리의 `/rustc/<toolchain-id>/...` 식별자는 개인 호스트 경로가 아닙니다.
