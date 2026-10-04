@@ -2,7 +2,7 @@
  * ZWF 재생기 — WASM 타임라인 평가 + Next2D 렌더러 워커.
  *
  * ```js
- * import { ZwfPlayer } from "@zukbox/runtime/player";
+ * import { ZwfPlayer } from "@zuku/zwf-runtime/player";
  * const player = await ZwfPlayer.open("/runtime/zwf_runtime.wasm", bytes, canvas);
  * player.play();
  * ```

@@ -25,11 +25,11 @@ try {
     run(["install", "--ignore-scripts", "--no-audit", "--no-fund", archive], consumer);
     const nodeSource = `import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
-import {ZwfRuntime,wasmUrl,ZwfError} from '@zukbox/runtime';
-import {sampleTimelineFile} from '@zukbox/runtime/writer';
-import {ZwfPlayer} from '@zukbox/runtime/player';
-import {buildFrameRenderQueue} from '@zukbox/runtime/render-queue';
-const binary=await readFile(new URL(import.meta.resolve('@zukbox/runtime/wasm')));
+import {ZwfRuntime,wasmUrl,ZwfError} from '@zuku/zwf-runtime';
+import {sampleTimelineFile} from '@zuku/zwf-runtime/writer';
+import {ZwfPlayer} from '@zuku/zwf-runtime/player';
+import {buildFrameRenderQueue} from '@zuku/zwf-runtime/render-queue';
+const binary=await readFile(new URL(import.meta.resolve('@zuku/zwf-runtime/wasm')));
 assert.ok(WebAssembly.validate(binary));
 const runtime=await ZwfRuntime.instantiate();
 const file=runtime.open(sampleTimelineFile());
@@ -49,7 +49,7 @@ console.log(JSON.stringify({pass:true,defaultAsset:true,allExports:true,ownedFra
         browser: { skipped: true, reason: "Set ZUKU_RUNTIME_PLAYWRIGHT_MODULE and ZUKU_RUNTIME_BROWSER_EXECUTABLE for actual Chrome." },
         installation: "fresh tarball install; no checkout imports; no install scripts" };
     if (process.env.ZUKU_RUNTIME_PLAYWRIGHT_MODULE && process.env.ZUKU_RUNTIME_BROWSER_EXECUTABLE) {
-        const prefix = "/node_modules/@zukbox/runtime";
+        const prefix = "/node_modules/@zuku/zwf-runtime";
         writeFileSync(join(consumer, "browser-test.mjs"), `
 import {ZwfRuntime,ZwfError} from '${prefix}/js/zwf-loader.mjs';
 import {sampleTimelineFile} from '${prefix}/js/zwf-writer.mjs';
@@ -76,7 +76,7 @@ window.runtimeProof={pass:true,checks:{defaultModuleRelativeWasm:true,actualWasm
             res.setHeader("Content-Security-Policy", "default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'self'; base-uri 'none'; object-src 'none'");
             if (path === "/") { res.setHeader("Content-Type", "text/html"); res.end('<!doctype html><script type="module" src="/browser-test.mjs"></script>'); return; }
             if (path === "/favicon.ico") { res.writeHead(204); res.end(); return; }
-            const local = path === "/wasm-octet" ? join(consumer, "node_modules/@zukbox/runtime/dist/zwf_runtime.wasm") : resolve(consumer, "." + path);
+            const local = path === "/wasm-octet" ? join(consumer, "node_modules/@zuku/zwf-runtime/dist/zwf_runtime.wasm") : resolve(consumer, "." + path);
             if (!local.startsWith(consumer + sep)) { res.writeHead(404); res.end(); return; }
             try {
                 res.setHeader("Content-Type", path === "/wasm-octet" ? "application/octet-stream" : path.endsWith(".wasm") ? "application/wasm" : "text/javascript");

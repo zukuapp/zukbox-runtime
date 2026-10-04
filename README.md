@@ -20,7 +20,8 @@
 JavaScript 로더를 담습니다. [형식 명세 v0.1](docs/zwf-format-v0.md)은 아직
 **초안**입니다. HTML5 게임 ZIP을 패키징하는
 [`zwf`의 ZWF2](https://github.com/zukuapp/zwf/blob/main/SPEC.md)와는 확장자만
-같고 파일 구조가 다릅니다.
+같고 파일 구조가 다릅니다. npm에서도 ZWF1은 `@zuku/zwf-runtime`,
+ZWF2는 `@zuku/zwf`로 구분합니다.
 
 ## 역할과 현재 범위
 
@@ -44,7 +45,7 @@ ZWF1 파일 → zwf-format (구조 검증·청크 파싱)
 
 ## 로컬 빌드와 테스트
 
-공개 npm 배포를 위한 패키지 이름은 `@zukbox/runtime`, 버전은 `0.1.1`입니다.
+공개 npm 배포를 위한 패키지 이름은 `@zuku/zwf-runtime`, 버전은 `0.1.1`입니다.
 실제 게시 여부는 npm 레지스트리에서 확인하세요. 설치 패키지는 컴파일된 WASM을
 포함하므로 소비자에게 Rust나 설치 후 빌드를 요구하지 않습니다. 소스에서 빌드할
 때는 Node.js 22 이상, Rust와 `wasm32-unknown-unknown` 타깃이 필요합니다.
@@ -70,7 +71,7 @@ npm test
 설치된 파일을 직접 읽습니다. 다른 위치를 쓰면 URL이나 바이트를 명시할 수 있습니다.
 
 ```js
-import { ZwfRuntime, wasmUrl } from "@zukbox/runtime";
+import { ZwfRuntime, wasmUrl } from "@zuku/zwf-runtime";
 
 const runtime = await ZwfRuntime.instantiate();
 const file = runtime.open(zwfBytes);

@@ -1,5 +1,5 @@
 {
-  "name": "@zukbox/runtime",
+  "name": "@zuku/zwf-runtime",
   "version": "0.1.1",
   "description": "ZUKBOX .zwf runtime — WebAssembly player core and its host loader.",
   "license": "MIT",
