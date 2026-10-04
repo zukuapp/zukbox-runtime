@@ -25,6 +25,7 @@ const ERROR_MESSAGES = Object.freeze({
     [-12]: "이 런타임 빌드에 해당 코덱이 없습니다",
     [-13]: "필수 청크가 없습니다",
     [-14]: "청크 페이로드 형식이 잘못되었습니다",
+    [-15]: "파일 또는 압축 해제 데이터가 런타임 용량 제한을 초과합니다",
     [-100]: "잘못된 인자입니다",
     [-101]: "유효하지 않은 핸들입니다",
     [-102]: "출력 버퍼가 부족합니다"
@@ -280,10 +281,13 @@ export class ZwfRuntime
     open (bytes)
     {
         const data = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+        if (data.byteLength > 512 * 1024 * 1024) {
+            throw new ZwfError(-15);
+        }
 
         const ptr = this.exports.zwf_alloc(data.length);
         if (ptr === 0) {
-            throw new ZwfError(-100);
+            throw new ZwfError(this.exports.zwf_last_error() || -100);
         }
 
         // memory 뷰는 WASM 이 힙을 키우면 무효화된다. alloc 직후에 잡는다.

@@ -187,3 +187,21 @@ test("close 이후에는 접근이 막힌다", () =>
     // 두 번 닫아도 안전해야 한다.
     file.close();
 });
+
+
+test("declared chunk count and output budgets fail without growing WASM memory", () => {
+    for (const [offset, value, expected] of [[12, 0xffffffff, -8], [44, 0xffffffff, -15]]) {
+        const bytes = minimalFile(); const view = new DataView(bytes.buffer);
+        view.setUint32(offset, value, true);
+        view.setUint32(28, crc32(bytes.subarray(0,28)), true);
+        const memoryBefore = runtime.exports.memory.buffer.byteLength;
+        const openedBefore = runtime.openCount;
+        assert.throws(() => runtime.open(bytes), error => error instanceof ZwfError && error.code === expected);
+        assert.equal(runtime.openCount, openedBefore);
+        assert.ok(runtime.exports.memory.buffer.byteLength - memoryBefore <= 65536);
+    }
+});
+test("ABI oversized allocation returns a budget error rather than trapping", () => {
+    assert.equal(runtime.exports.zwf_alloc(512 * 1024 * 1024 + 1), 0);
+    assert.equal(runtime.exports.zwf_last_error(), -15);
+});

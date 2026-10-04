@@ -8,6 +8,10 @@ use crate::chunk::{CHUNK_HEADER_SIZE, Chunk, ChunkHeader, ChunkId, align_up};
 use crate::error::{Error, Result};
 use crate::header::{HEADER_SIZE, Header};
 
+pub const MAX_ARCHIVE_BYTES: usize = 512 * 1024 * 1024;
+pub const MAX_CHUNKS: usize = 65_536;
+pub const MAX_EXPANDED_BYTES: u64 = 512 * 1024 * 1024;
+
 /// 버퍼 전체를 훑지 않고 청크를 하나씩 꺼내는 반복자.
 ///
 /// 스트리밍 파싱의 기반이다 — 아직 도착하지 않은 뒷부분을 건드리지 않는다.
@@ -46,6 +50,18 @@ impl<'a> ChunkReader<'a> {
             stored_size: u32::from_le_bytes([raw[8], raw[9], raw[10], raw[11]]),
             origin_size: u32::from_le_bytes([raw[12], raw[13], raw[14], raw[15]]),
         };
+        if raw[6..8] != [0, 0] || header.flags & !3 != 0 {
+            return Err(Error::MalformedPayload("chunk header"));
+        }
+        if crate::chunk::Codec::from_u8(header.codec).is_none() && !header.is_skippable() {
+            return Err(Error::UnknownCodec(header.codec));
+        }
+        if header.origin_size as usize > crate::chunk::MAX_CHUNK_BYTES {
+            return Err(Error::ResourceLimit("chunk bytes"));
+        }
+        if header.codec == 0 && header.origin_size != header.stored_size {
+            return Err(Error::SizeMismatch);
+        }
 
         let payload_end = header_end
             .checked_add(header.stored_size as usize)
@@ -69,6 +85,13 @@ impl<'a> ChunkReader<'a> {
 
         // 다음 청크는 4바이트 경계에서 시작한다.
         self.cursor = align_up(crc_end);
+        if self.cursor > self.bytes.len()
+            || self.bytes[crc_end..self.cursor]
+                .iter()
+                .any(|byte| *byte != 0)
+        {
+            return Err(Error::MalformedPayload("chunk padding"));
+        }
 
         Ok(Chunk {
             header,
@@ -116,11 +139,35 @@ impl<'a> Archive<'a> {
     ///
     /// 스트리밍이 필요하면 `Header::parse` + `ChunkReader` 를 직접 쓰면 된다.
     pub fn parse(bytes: &'a [u8]) -> Result<Self> {
+        if bytes.len() > MAX_ARCHIVE_BYTES {
+            return Err(Error::ResourceLimit("archive bytes"));
+        }
         let header = Header::parse(bytes)?;
 
+        let possible = (bytes.len() - header.header_size as usize) / CHUNK_HEADER_SIZE;
+        if header.chunk_count as usize > possible {
+            return Err(Error::ChunkCountMismatch {
+                declared: header.chunk_count,
+                actual: possible as u32,
+            });
+        }
+        if header.chunk_count as usize > MAX_CHUNKS {
+            return Err(Error::ResourceLimit("chunk count"));
+        }
+
         let mut chunks = Vec::with_capacity(header.chunk_count as usize);
-        for chunk in ChunkReader::new(bytes, &header) {
-            chunks.push(chunk?);
+        let mut reader = ChunkReader::new(bytes, &header);
+        let mut expanded = 0u64;
+        for chunk in reader.by_ref() {
+            let chunk = chunk?;
+            expanded += u64::from(chunk.header.origin_size);
+            if expanded > MAX_EXPANDED_BYTES {
+                return Err(Error::ResourceLimit("expanded archive bytes"));
+            }
+            chunks.push(chunk);
+        }
+        if reader.cursor != bytes.len() {
+            return Err(Error::MalformedPayload("trailing archive data"));
         }
 
         if chunks.len() as u32 != header.chunk_count {
@@ -245,6 +292,75 @@ mod tests {
     }
 
     #[test]
+    fn rejects_impossible_chunk_count_before_index_allocation() {
+        let header = Header {
+            version_major: 0,
+            version_minor: 1,
+            flags: 0,
+            header_size: HEADER_SIZE,
+            chunk_count: 5,
+            file_size: HEADER_SIZE as u64,
+        };
+        assert_eq!(
+            Archive::parse(&header.to_bytes())
+                .err()
+                .map(|error| error.code()),
+            Some(-8)
+        );
+    }
+
+    #[test]
+    fn rejects_extreme_declared_count_without_allocation() {
+        let header = Header {
+            version_major: 0,
+            version_minor: 1,
+            flags: 0,
+            header_size: HEADER_SIZE,
+            chunk_count: u32::MAX,
+            file_size: HEADER_SIZE as u64,
+        };
+        assert_eq!(
+            Archive::parse(&header.to_bytes())
+                .err()
+                .map(|error| error.code()),
+            Some(-8)
+        );
+    }
+
+    #[test]
+    fn rejects_declared_chunk_output_over_budget() {
+        let mut bytes = minimal_file();
+        bytes[HEADER_SIZE as usize + 12..HEADER_SIZE as usize + 16]
+            .copy_from_slice(&u32::MAX.to_le_bytes());
+        assert_eq!(
+            Archive::parse(&bytes).err().map(|error| error.code()),
+            Some(-15)
+        );
+    }
+
+    #[test]
+    fn rejects_trailing_data_and_nonzero_padding() {
+        let mut bytes = minimal_file();
+        let mut header = Header::parse(&bytes).unwrap();
+        bytes.extend_from_slice(&[0; 4]);
+        header.file_size = bytes.len() as u64;
+        bytes[..HEADER_SIZE as usize].copy_from_slice(&header.to_bytes());
+        assert_eq!(
+            Archive::parse(&bytes).err().map(|error| error.code()),
+            Some(-14)
+        );
+        let mut bytes = minimal_file();
+        let stored = u32::from_le_bytes(bytes[40..44].try_into().unwrap()) as usize;
+        let padding = HEADER_SIZE as usize + CHUNK_HEADER_SIZE + stored;
+        assert!(!padding.is_multiple_of(4));
+        bytes[padding] = 1;
+        assert_eq!(
+            Archive::parse(&bytes).err().map(|error| error.code()),
+            Some(-14)
+        );
+    }
+
+    #[test]
     fn parses_minimal_file() {
         let bytes = minimal_file();
         let archive = Archive::parse(&bytes).unwrap();
@@ -327,7 +443,9 @@ mod tests {
         let bitmap = BitmapBody {
             bounds: [0.0, 2.0, 0.0, 2.0],
             encoding: BitmapEncoding::RawRgba8,
-            data: vec![255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 255, 255, 255],
+            data: vec![
+                255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 255, 255, 255,
+            ],
         };
         let video = VideoBody {
             bounds: [0.0, 320.0, 0.0, 240.0],
@@ -375,9 +493,15 @@ mod tests {
         let bytes = writer.finish();
 
         let archive = Archive::parse(&bytes).unwrap();
-        let parsed_characters =
-            Characters::parse(archive.find(ChunkId::CHRS).unwrap().payload().unwrap().as_ref())
-                .unwrap();
+        let parsed_characters = Characters::parse(
+            archive
+                .find(ChunkId::CHRS)
+                .unwrap()
+                .payload()
+                .unwrap()
+                .as_ref(),
+        )
+        .unwrap();
         let shap_chunk = archive.find(ChunkId::SHAP).unwrap().payload().unwrap();
         let bmap_chunk = archive.find(ChunkId::BMAP).unwrap().payload().unwrap();
         let vids_chunk = archive.find(ChunkId::VIDS).unwrap().payload().unwrap();

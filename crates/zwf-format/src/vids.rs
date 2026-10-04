@@ -62,19 +62,36 @@ impl VideoBody {
         }
 
         let bounds = [
-            f32::from_bits(u32::from_le_bytes([payload[0], payload[1], payload[2], payload[3]])),
-            f32::from_bits(u32::from_le_bytes([payload[4], payload[5], payload[6], payload[7]])),
-            f32::from_bits(u32::from_le_bytes([payload[8], payload[9], payload[10], payload[11]])),
             f32::from_bits(u32::from_le_bytes([
-                payload[12], payload[13], payload[14], payload[15],
+                payload[0], payload[1], payload[2], payload[3],
+            ])),
+            f32::from_bits(u32::from_le_bytes([
+                payload[4], payload[5], payload[6], payload[7],
+            ])),
+            f32::from_bits(u32::from_le_bytes([
+                payload[8],
+                payload[9],
+                payload[10],
+                payload[11],
+            ])),
+            f32::from_bits(u32::from_le_bytes([
+                payload[12],
+                payload[13],
+                payload[14],
+                payload[15],
             ])),
         ];
         let volume = f32::from_bits(u32::from_le_bytes([
-            payload[16], payload[17], payload[18], payload[19],
+            payload[16],
+            payload[17],
+            payload[18],
+            payload[19],
         ]));
         let flags = payload[20];
-        let encoding = VideoEncoding::from_u8(payload[21]).ok_or(Error::MalformedPayload("VIDS"))?;
-        let byte_len = u32::from_le_bytes([payload[24], payload[25], payload[26], payload[27]]) as usize;
+        let encoding =
+            VideoEncoding::from_u8(payload[21]).ok_or(Error::MalformedPayload("VIDS"))?;
+        let byte_len =
+            u32::from_le_bytes([payload[24], payload[25], payload[26], payload[27]]) as usize;
         let end = HEADER_SIZE
             .checked_add(byte_len)
             .ok_or(Error::MalformedPayload("VIDS"))?;

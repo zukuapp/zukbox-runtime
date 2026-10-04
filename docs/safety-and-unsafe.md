@@ -27,3 +27,17 @@
 할당량을 설정하지 않습니다. 그런 경계가 필요한 호스트는 별도의 정책과 검증을
 갖춰야 합니다. HTML5 게임의 **ZWF2** 실행 경계는 이 문서가 아닌
 [`zwf/SPEC.md`](https://github.com/zukuapp/zwf/blob/main/SPEC.md)를 따릅니다.
+
+## Parser and allocation budgets
+
+Before building the chunk index, declared chunk count must fit actual header
+space and must not exceed 65,536. Archive and aggregate expanded bytes are
+bounded at 512 MiB; an individual chunk is bounded at 128 MiB. DEFLATE must
+produce exactly the declared origin size, and padding/trailing-data integrity
+is checked. ABI allocation uses a fallible bounded reservation; budget failures
+return stable error `-15`, including oversized `zwf_alloc` requests.
+
+청크 색인 할당 전 실제 파일 길이와 개수를 검사합니다. JS↔WASM 테스트는
+허위 개수·출력 크기가 메모리 급증이나 트랩 없이 거부되는지 확인합니다.
+이 경계는 호스트가 ABI 포인터·길이 쌍의 계약을 지킨다는 전제이며,
+`SIGNED` 플래그 자체는 서명 검증이나 신뢰를 증명하지 않습니다.

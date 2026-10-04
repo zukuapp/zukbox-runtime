@@ -65,8 +65,8 @@ impl Characters {
         let mut entries = Vec::with_capacity(count);
         for idx in 0..count {
             let base = 4 + idx * ENTRY_SIZE;
-            let kind = CharacterKind::from_u8(payload[base])
-                .ok_or(Error::MalformedPayload("CHRS"))?;
+            let kind =
+                CharacterKind::from_u8(payload[base]).ok_or(Error::MalformedPayload("CHRS"))?;
             let flags = payload[base + 1];
             entries.push(CharacterEntry {
                 kind,
@@ -125,7 +125,10 @@ mod tests {
                 },
             ],
         };
-        assert_eq!(Characters::parse(&characters.to_bytes()).unwrap(), characters);
+        assert_eq!(
+            Characters::parse(&characters.to_bytes()).unwrap(),
+            characters
+        );
     }
 
     #[test]

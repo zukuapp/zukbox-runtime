@@ -104,7 +104,7 @@ pub enum FrameError {
     BufferTooSmall { needed_floats: usize },
 }
 
-fn place_object_at<'a>(body: &'a MovieClipBody, cell: usize) -> Option<&'a PlaceObject> {
+fn place_object_at(body: &MovieClipBody, cell: usize) -> Option<&PlaceObject> {
     let place_idx = *body.place_map.get(cell)?;
     if place_idx < 0 {
         return None;

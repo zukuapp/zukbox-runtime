@@ -35,6 +35,8 @@ pub enum Error {
     MissingRequiredChunk(&'static str),
     /// 청크 페이로드가 자기 스키마상 필요한 길이에 못 미친다.
     MalformedPayload(&'static str),
+    /// A declared allocation or decompression exceeds the runtime budget.
+    ResourceLimit(&'static str),
 }
 
 impl Error {
@@ -55,6 +57,7 @@ impl Error {
             Error::CodecUnavailable(_) => -12,
             Error::MissingRequiredChunk(_) => -13,
             Error::MalformedPayload(_) => -14,
+            Error::ResourceLimit(_) => -15,
         }
     }
 }
@@ -84,6 +87,7 @@ impl fmt::Display for Error {
             }
             Error::MissingRequiredChunk(id) => write!(f, "missing required chunk {id}"),
             Error::MalformedPayload(id) => write!(f, "malformed payload in chunk {id}"),
+            Error::ResourceLimit(kind) => write!(f, "resource budget exceeded: {kind}"),
         }
     }
 }

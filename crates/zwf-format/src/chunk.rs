@@ -15,6 +15,9 @@ pub const CHUNK_HEADER_SIZE: usize = 16;
 /// 모든 청크 경계의 정렬 단위.
 pub const ALIGNMENT: usize = 4;
 
+/// Bounds apply before allocating or inflating untrusted chunk data.
+pub const MAX_CHUNK_BYTES: usize = 128 * 1024 * 1024;
+
 /// 4바이트 ASCII 식별자. 4자 미만은 공백으로 우측 패딩한다.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ChunkId(pub [u8; 4]);
@@ -139,6 +142,9 @@ impl<'a> Chunk<'a> {
     /// `Raw` 는 원본을 그대로 빌려주고(제로카피), 압축된 청크만 할당한다.
     /// `HAS_CRC` 가 있으면 압축 해제 **후** 원본 바이트에 대해 검증한다.
     pub fn payload(&self) -> Result<Cow<'a, [u8]>> {
+        if self.header.origin_size as usize > MAX_CHUNK_BYTES {
+            return Err(Error::ResourceLimit("chunk bytes"));
+        }
         let codec =
             Codec::from_u8(self.header.codec).ok_or(Error::UnknownCodec(self.header.codec))?;
 
@@ -178,8 +184,12 @@ pub const fn align_up(value: usize) -> usize {
 
 #[cfg(feature = "deflate")]
 fn inflate(input: &[u8], origin_size: usize) -> Result<Vec<u8>> {
-    miniz_oxide::inflate::decompress_to_vec_with_limit(input, origin_size)
-        .map_err(|_| Error::DecompressFailed)
+    let output = miniz_oxide::inflate::decompress_to_vec_with_limit(input, origin_size)
+        .map_err(|_| Error::DecompressFailed)?;
+    if output.len() != origin_size {
+        return Err(Error::SizeMismatch);
+    }
+    Ok(output)
 }
 
 #[cfg(not(feature = "deflate"))]

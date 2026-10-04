@@ -367,7 +367,10 @@ mod tests {
             controller: vec![],
             place_map: vec![],
         };
-        let chunk = [0u8; 8].into_iter().chain(body.to_bytes()).collect::<Vec<_>>();
+        let chunk = [0u8; 8]
+            .into_iter()
+            .chain(body.to_bytes())
+            .collect::<Vec<_>>();
         assert_eq!(
             MovieClipBody::parse_at(&chunk, 8, body.to_bytes().len() as u32).unwrap(),
             body

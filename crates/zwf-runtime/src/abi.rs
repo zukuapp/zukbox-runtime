@@ -24,7 +24,15 @@ use crate::timeline::{self, FrameError, RENDER_ITEM_FLOATS};
 /// 넘겨 소유권을 이전하기 전까지 유효하다.
 #[unsafe(no_mangle)]
 pub extern "C" fn zwf_alloc(len: usize) -> *mut u8 {
-    let mut buffer = Vec::<u8>::with_capacity(len);
+    if len > zwf_format::reader::MAX_ARCHIVE_BYTES {
+        registry::set_last_error(zwf_format::Error::ResourceLimit("allocation bytes").code());
+        return core::ptr::null_mut();
+    }
+    let mut buffer = Vec::<u8>::new();
+    if buffer.try_reserve_exact(len).is_err() {
+        registry::set_last_error(zwf_format::Error::ResourceLimit("allocation bytes").code());
+        return core::ptr::null_mut();
+    }
     let ptr = buffer.as_mut_ptr();
     core::mem::forget(buffer);
     ptr
@@ -91,7 +99,7 @@ pub extern "C" fn zwf_open_count() -> u32 {
     registry::open_count() as u32
 }
 
-/// 인자가 잘못됐을 때의 코드. `zwf_format::Error` 코드 공간(-1..=-14)과 겹치지 않는다.
+/// 인자가 잘못됐을 때의 코드. `zwf_format::Error` 코드 공간(-1..=-15)과 겹치지 않는다.
 pub const BAD_ARGUMENT: i32 = -100;
 /// 핸들이 유효하지 않을 때의 코드.
 pub const BAD_HANDLE: i32 = -101;
@@ -228,7 +236,9 @@ pub extern "C" fn zwf_character_kind(handle: i32, character_id: u32) -> i32 {
 /// MovieClip 캐릭터의 `total_frame`. MovieClip 이 아니거나 없으면 -1.
 #[unsafe(no_mangle)]
 pub extern "C" fn zwf_mclip_total_frame(handle: i32, character_id: u32) -> i32 {
-    let result = registry::with(handle, |instance| registry::movie_clip_total_frame(instance, character_id));
+    let result = registry::with(handle, |instance| {
+        registry::movie_clip_total_frame(instance, character_id)
+    });
     match result {
         Some(Ok(total_frame)) => {
             registry::set_last_error(0);
@@ -285,9 +295,7 @@ pub unsafe extern "C" fn zwf_eval_frame(
             }
 
             // SAFETY: 호출자가 out_capacity 만큼의 f32 슬롯을 보장한다.
-            let out = unsafe {
-                core::slice::from_raw_parts_mut(out_ptr, out_capacity as usize)
-            };
+            let out = unsafe { core::slice::from_raw_parts_mut(out_ptr, out_capacity as usize) };
 
             match timeline::write_render_items(&items, out) {
                 Ok(_) => {

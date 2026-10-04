@@ -180,7 +180,7 @@ mod tests {
             width: 640,
             height: 480,
             fps: 12.0,
-            bg_rgba: 0x000000_ff,
+            bg_rgba: 0x0000_00ff,
             root_character_id: 0,
         };
 
@@ -214,13 +214,7 @@ mod tests {
 
         let mut out = [0.0f32; RENDER_ITEM_FLOATS];
         let written = unsafe {
-            abi::zwf_eval_frame(
-                handle,
-                0,
-                0,
-                out.as_mut_ptr(),
-                RENDER_ITEM_FLOATS as u32,
-            )
+            abi::zwf_eval_frame(handle, 0, 0, out.as_mut_ptr(), RENDER_ITEM_FLOATS as u32)
         };
         assert_eq!(written, 1);
         assert_eq!(out[0], 0.0);
