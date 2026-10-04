@@ -34,5 +34,5 @@ if (/\/(?:root|home|Users|srv|volume[0-9]+)\//.test(bytes.toString("latin1"))) {
 }
 mkdirSync(new URL("../dist/", import.meta.url), { recursive: true });
 copyFileSync(source, output);
-console.log(JSON.stringify({ wasmBytes: bytes.byteLength,
+console.error(JSON.stringify({ wasmBytes: bytes.byteLength,
     wasmSha256: createHash("sha256").update(bytes).digest("hex") }));
