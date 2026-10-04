@@ -42,11 +42,7 @@ export class ZwfPlayer
      */
     static async open (wasmSource, zwfBytes, canvas, rendererWorker)
     {
-        const wasmBytes = typeof wasmSource === "string"
-            ? await fetch(wasmSource).then((response) => response.arrayBuffer())
-            : wasmSource;
-
-        const runtime = await ZwfRuntime.instantiate(wasmBytes);
+        const runtime = await ZwfRuntime.instantiate(wasmSource);
         const file = runtime.open(zwfBytes);
 
         if (!canvas.dataset.zwfPlayerBooted) {

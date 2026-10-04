@@ -31,6 +31,19 @@ const ERROR_MESSAGES = Object.freeze({
     [-102]: "출력 버퍼가 부족합니다"
 });
 
+/** Installed package asset; the browser host serves this URL with the package. */
+export const wasmUrl = new URL("../dist/zwf_runtime.wasm", import.meta.url).href;
+const MAX_BYTES = 512 * 1024 * 1024;
+
+const checkAllocation = (exports, ptr, byteLen, alignment = 1) =>
+{
+    if (!Number.isSafeInteger(ptr) || ptr <= 0 || ptr % alignment !== 0
+        || !Number.isSafeInteger(byteLen) || byteLen < 0
+        || ptr > exports.memory.buffer.byteLength - byteLen) {
+        throw new ZwfError(-100);
+    }
+};
+
 /** 재생을 시작할 수 없을 때 던진다. */
 export class ZwfError extends Error
 {
@@ -175,10 +188,17 @@ export class ZwfFile
         const stride = exports.zwf_render_item_stride();
         const floatCount = count * stride;
         const byteLen = floatCount * 4;
+        if (!Number.isSafeInteger(count) || stride !== 17) {
+            throw new ZwfError(-100);
+        }
+        if (!Number.isSafeInteger(byteLen) || byteLen > MAX_BYTES) {
+            throw new ZwfError(-15);
+        }
         const ptr = exports.zwf_alloc(byteLen);
         if (ptr === 0) {
             throw new ZwfError(-100);
         }
+        checkAllocation(exports, ptr, byteLen, 4);
 
         try {
             const written = exports.zwf_eval_frame(
@@ -191,8 +211,12 @@ export class ZwfFile
             if (written < 0) {
                 throw new ZwfError(written);
             }
+            if (!Number.isInteger(written) || written > count) {
+                throw new ZwfError(-102);
+            }
 
-            const view = new Float32Array(exports.memory.buffer, ptr, floatCount);
+            // Returned arrays must outlive both zwf_free and later memory growth.
+            const view = new Float32Array(exports.memory.buffer, ptr, floatCount).slice();
             const items = new Array(written);
             for (let idx = 0; idx < written; ++idx) {
                 const base = idx * stride;
@@ -239,16 +263,33 @@ export class ZwfRuntime
      * `Response` 를 넘기면 `instantiateStreaming` 으로 다운로드와 컴파일이
      * 겹쳐 실행된다 — 첫 재생까지의 시간이 줄어드니 되도록 이 경로를 쓴다.
      *
-     * @param {Response | Promise<Response> | BufferSource} source
+     * @param {string | URL | Response | Promise<Response> | BufferSource} [source]
      * @returns {Promise<ZwfRuntime>}
      */
-    static async instantiate (source)
+    static async instantiate (source = wasmUrl)
     {
-        const resolved = await source;
-
-        const result = resolved instanceof Response || typeof resolved?.arrayBuffer === "function"
-            ? await WebAssembly.instantiateStreaming(resolved, {})
-            : await WebAssembly.instantiate(resolved, {});
+        let resolved = await source;
+        if (typeof resolved === "string" || resolved instanceof URL) {
+            const url = String(resolved);
+            if (url.startsWith("file:") && typeof process !== "undefined" && process.versions?.node) {
+                const { readFile } = await import("node:fs/promises");
+                resolved = await readFile(new URL(url));
+            } else {
+                resolved = await fetch(resolved);
+            }
+        }
+        let result;
+        if (typeof resolved?.arrayBuffer === "function") {
+            if (resolved.ok === false) {
+                throw new Error(`WASM request failed (HTTP ${resolved.status})`);
+            }
+            const mime = resolved.headers?.get("content-type")?.split(";")[0].trim().toLowerCase();
+            result = mime === "application/wasm" && typeof WebAssembly.instantiateStreaming === "function"
+                ? await WebAssembly.instantiateStreaming(resolved, {})
+                : await WebAssembly.instantiate(await resolved.arrayBuffer(), {});
+        } else {
+            result = await WebAssembly.instantiate(resolved, {});
+        }
 
         return new ZwfRuntime(result.instance);
     }
@@ -281,7 +322,7 @@ export class ZwfRuntime
     open (bytes)
     {
         const data = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
-        if (data.byteLength > 512 * 1024 * 1024) {
+        if (data.byteLength > MAX_BYTES) {
             throw new ZwfError(-15);
         }
 
@@ -289,6 +330,7 @@ export class ZwfRuntime
         if (ptr === 0) {
             throw new ZwfError(this.exports.zwf_last_error() || -100);
         }
+        checkAllocation(this.exports, ptr, data.length);
 
         // memory 뷰는 WASM 이 힙을 키우면 무효화된다. alloc 직후에 잡는다.
         new Uint8Array(this.exports.memory.buffer, ptr, data.length).set(data);

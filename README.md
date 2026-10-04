@@ -44,9 +44,10 @@ ZWF1 파일 → zwf-format (구조 검증·청크 파싱)
 
 ## 로컬 빌드와 테스트
 
-이 저장소의 `package.json`에는 `private: true`가 설정돼 있습니다.
-**`@zukbox/runtime`은 npm에 게시된 설치 패키지가 아닙니다.** 체크아웃한 소스에서
-실행하세요. Node.js 22 이상, Rust와 `wasm32-unknown-unknown` 타깃이 필요합니다.
+공개 npm 배포를 위한 패키지 이름은 `@zukbox/runtime`, 버전은 `0.1.1`입니다.
+실제 게시 여부는 npm 레지스트리에서 확인하세요. 설치 패키지는 컴파일된 WASM을
+포함하므로 소비자에게 Rust나 설치 후 빌드를 요구하지 않습니다. 소스에서 빌드할
+때는 Node.js 22 이상, Rust와 `wasm32-unknown-unknown` 타깃이 필요합니다.
 
 ```bash
 git clone https://github.com/zukuapp/zukbox-runtime.git
@@ -57,19 +58,21 @@ npm test
 
 `npm test`는 Rust 테스트, WASM 빌드, JavaScript 왕복 테스트를 실행합니다. WASM만
 빌드하려면 `npm run build:wasm`을 사용합니다. 산출물은
-`target/wasm32-unknown-unknown/release/zwf_runtime.wasm`입니다. CI는 빌드 크기가
+`target/wasm32-unknown-unknown/release/zwf_runtime.wasm`이고, npm 배포 파일은
+`dist/zwf_runtime.wasm`으로 복사됩니다. CI는 빌드 크기가
 128 KiB를 넘지 않는지도 검사합니다.
 
 ## 호스트에서 읽기
 
-아래 예시는 **체크아웃한 소스**의 로더를 브라우저 앱에서 가져오는 형태입니다.
-앱이 WASM 파일과 ZWF1 파일을 제공하고, `zwfBytes`를 `Uint8Array` 또는
-`ArrayBuffer`로 준비해야 합니다.
+설치한 패키지를 사용하는 예시입니다. `zwfBytes`는 ZWF1 `Uint8Array` 또는
+`ArrayBuffer`입니다. 기본 WASM URL은 모듈에 상대적인 배포 파일을 가리킵니다.
+브라우저 호스트·번들러는 해당 파일을 함께 제공해야 합니다. Node.js에서는
+설치된 파일을 직접 읽습니다. 다른 위치를 쓰면 URL이나 바이트를 명시할 수 있습니다.
 
 ```js
-import { ZwfRuntime } from "./js/zwf-loader.mjs";
+import { ZwfRuntime, wasmUrl } from "@zukbox/runtime";
 
-const runtime = await ZwfRuntime.instantiate(fetch("/zwf_runtime.wasm"));
+const runtime = await ZwfRuntime.instantiate();
 const file = runtime.open(zwfBytes);
 
 try {
@@ -83,7 +86,20 @@ try {
 로더는 파일을 열 때 `ZwfError`를 던질 수 있으며, `error.code`는
 [`zwf-format` 오류 정의](crates/zwf-format/src/error.rs)에 대응합니다.
 브라우저에서 스트리밍 방식으로 WASM을 불러올 때는 서버가 `.wasm`을 올바른 MIME
-유형으로 제공해야 합니다.
+유형으로 제공해야 합니다. 다른 MIME 유형은 바이트 로딩으로 처리합니다.
+WASM 컴파일을 허용하는 CSP에서는 `script-src 'self' 'wasm-unsafe-eval'`처럼
+WebAssembly 전용 허용을 사용하며 JavaScript `eval`은 필요하지 않습니다.
+`evalFrame()`이 반환하는 행렬·색상 배열은 복사된 값으로, 다음 호출이나 메모리
+해제 후에도 사용할 수 있습니다. 원시 `runtime.exports`의 ABI 포인터·길이·소유권
+계약은 여전히 호스트 책임입니다.
+
+The package includes the MIT-licensed ZWF1 WASM and four JavaScript entrypoints.
+`ZwfRuntime.instantiate()` loads the installed asset by default in Node.js and
+from a module-relative URL in browsers. Serve the asset alongside the module,
+or pass an explicit URL, response or byte buffer. `wasmUrl` exposes the asset URL;
+the `./wasm` package export also resolves the distributed binary. This remains
+the ZWF1 timeline runtime, not the HTML5 ZIP ZWF2 format. Rendering and script
+isolation remain host responsibilities; SIGNED is not signature verification.
 
 ## 문서와 관련 저장소
 

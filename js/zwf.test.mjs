@@ -205,3 +205,50 @@ test("ABI oversized allocation returns a budget error rather than trapping", () 
     assert.equal(runtime.exports.zwf_alloc(512 * 1024 * 1024 + 1), 0);
     assert.equal(runtime.exports.zwf_last_error(), -15);
 });
+
+test("installed default asset and explicit URL load the same runtime", async () => {
+    const { wasmUrl } = await import("./zwf-loader.mjs");
+    for (const loaded of [await ZwfRuntime.instantiate(), await ZwfRuntime.instantiate(new URL(wasmUrl))]) {
+        const file = loaded.open(minimalFile());
+        assert.equal(file.stage.width, 1280);
+        file.close();
+        assert.equal(loaded.openCount, 0);
+    }
+});
+
+test("non-streaming MIME works and failed HTTP does not parse its body", async () => {
+    const bytes = await readFile(WASM_PATH);
+    const loaded = await ZwfRuntime.instantiate(new Response(bytes, {
+        headers: { "Content-Type": "application/octet-stream" }
+    }));
+    assert.deepEqual(loaded.specVersion, { major: 0, minor: 1 });
+    await assert.rejects(ZwfRuntime.instantiate(new Response(bytes, { status: 404 })), /HTTP 404/);
+});
+
+test("frame arrays remain owned after buffer reuse, memory growth and close", async () => {
+    const loaded = await ZwfRuntime.instantiate();
+    const file = loaded.open(sampleTimelineFile());
+    const items = file.evalFrame();
+    const ptr = loaded.exports.zwf_alloc(68);
+    new Uint8Array(loaded.exports.memory.buffer, ptr, 68).fill(0);
+    loaded.exports.zwf_free(ptr, 68);
+    loaded.exports.memory.grow(1);
+    file.close();
+    assert.deepEqual([...items[0].matrix], [1, 0, 0, 1, 100, 50]);
+    assert.deepEqual([...items[0].colorTransform], [1, 0, 0, 1, 0, 0, 0, 1]);
+});
+
+test("raw ABI valid short output buffer and null input return stable errors", () => {
+    assert.equal(runtime.exports.zwf_open(0, 32), -100);
+    const file = runtime.open(sampleTimelineFile());
+    const ptr = runtime.exports.zwf_alloc(64);
+    try {
+        const bytes = new Uint8Array(runtime.exports.memory.buffer, ptr, 64);
+        bytes.fill(0xa5);
+        assert.equal(runtime.exports.zwf_eval_frame(file._handle, 0, 0, ptr, 16), -102);
+        assert.ok(bytes.every(value => value === 0xa5));
+    } finally {
+        runtime.exports.zwf_free(ptr, 64);
+        file.close();
+    }
+});

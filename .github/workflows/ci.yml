@@ -37,7 +37,7 @@ jobs:
         run: cargo test --all-features
 
       - name: Build wasm
-        run: cargo build --release --target wasm32-unknown-unknown -p zwf-runtime
+        run: npm run build:wasm
 
       # 산출물 크기는 첫 재생 지연에 직결된다. 소리 없이 커지는 것을 막는다.
       - name: Check wasm size budget
@@ -52,6 +52,9 @@ jobs:
 
       - name: Test (JS ↔ WASM round-trip)
         run: node --test "js/**/*.test.mjs"
+
+      - name: Test installed npm artifact
+        run: npm run test:packed
 
       - uses: actions/upload-artifact@v5
         with:

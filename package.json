@@ -1,22 +1,30 @@
 {
   "name": "@zukbox/runtime",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "ZUKBOX .zwf runtime — WebAssembly player core and its host loader.",
   "license": "MIT",
   "type": "module",
-  "private": true,
+  "main": "./js/zwf-loader.mjs",
+  "repository": "github:zukuapp/zukbox-runtime",
+  "publishConfig": { "access": "public" },
   "exports": {
     ".": "./js/zwf-loader.mjs",
     "./writer": "./js/zwf-writer.mjs",
     "./player": "./js/zwf-player.mjs",
-    "./render-queue": "./js/zwf-render-queue.mjs"
+    "./render-queue": "./js/zwf-render-queue.mjs",
+    "./wasm": "./dist/zwf_runtime.wasm"
   },
   "files": [
-    "js/",
-    "dist/"
+    "js/zwf-loader.mjs",
+    "js/zwf-writer.mjs",
+    "js/zwf-player.mjs",
+    "js/zwf-render-queue.mjs",
+    "dist/zwf_runtime.wasm"
   ],
   "scripts": {
-    "build:wasm": "cargo build --release --target wasm32-unknown-unknown -p zwf-runtime",
+    "build:wasm": "node scripts/build-wasm.mjs",
+    "prepack": "npm run build:wasm",
+    "test:packed": "node scripts/test-packed.mjs",
     "test:rust": "cargo test",
     "test:js": "node --test \"js/**/*.test.mjs\"",
     "test": "npm run test:rust && npm run build:wasm && npm run test:js"
