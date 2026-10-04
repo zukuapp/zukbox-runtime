@@ -1,12 +1,18 @@
+<!-- BEGIN ZUKU OFFICIAL BRAND -->
 <!-- markdownlint-disable MD033 MD041 -->
-<a href="https://zukuapp.github.io/docs/">
-  <img
-    src="https://raw.githubusercontent.com/zukuapp/.github/main/profile/assets/developer-hero.png"
-    alt="Trecillo 로고와 ZUKU 개발자 허브 안내"
-    width="760"
-  >
-</a>
+<p align="center">
+  <a href="https://docs.zuzunza.com/">
+    <picture>
+      <source media="(prefers-color-scheme: dark)"
+        srcset="docs/branding/zuku-logo-dark.png">
+      <img src="docs/branding/zuku-logo-light.png"
+        alt="ZUKU" width="320">
+    </picture>
+  </a>
+</p>
+<p align="center">ZUKU - 내가 불러 일으키는 새로운 창작.</p>
 <!-- markdownlint-enable MD033 MD041 -->
+<!-- END ZUKU OFFICIAL BRAND -->
 
 # ZUKBOX ZWF1 런타임
 
