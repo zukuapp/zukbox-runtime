@@ -4,16 +4,15 @@
 |------|----|
 | 상태 | 초안(Draft). v1.0 고정 전까지 하위 호환을 보장하지 않습니다. |
 | 대상 | `zukbox`(에디터, 쓰기)와 `zukbox-runtime`(WASM, 읽기) 사이의 유일한 계약 |
-| 최종 갱신 | 2026-09-23 |
+| 최종 갱신 | 2026-10-27 |
 
-이 문서는 형식 초안이며 구현 목록이 아닙니다. 공개 코드는 헤더·청크와 일부 미디어
-본문을 파싱하고 타임라인을 평가합니다. `SNDS` 동기, `ATLS` 패킹, `SIGN` 서명 검증은
-구현되지 않았습니다. 구현 범위와 호스트 책임은 [README](../README.md)와
-[안전 경계](safety-and-unsafe.md)에 정리했습니다.
+현재 런타임은 `SNDS` 동기, `ATLS` 패킹, `SIGN` 서명 검증을 구현하지 않습니다.
+구현 범위와 호스트 책임은 [README](../README.md)와
+[안전 경계](safety-and-unsafe.md)에 있습니다.
 
-이 형식은 `ZWF1` 매직을 쓰는 ZUKBOX 바이너리입니다.
+이 형식은 `ZWF1` 매직을 쓰는 ZUKBOX 바이너리이며,
 [`zwf` 저장소의 `ZWF2` HTML5 패키지](https://github.com/zukuapp/zwf/blob/main/SPEC.md)와
-호환되지 않습니다.
+파일 구조가 다릅니다.
 
 ---
 
@@ -21,13 +20,11 @@
 
 | 목표 | 이유 |
 |------|------|
-| 단일 파일 바이너리 | `.zwf` 하나만 배포하면 모바일/PC/태블릿 어디서든 동일 재생 (요구사항 9) |
+| 단일 파일 바이너리 | `.zwf` 하나만 배포하면 모바일/PC/태블릿 어디서든 동일 재생 |
 | 제로카피 파싱 | 청크 페이로드를 WASM 선형 메모리에 그대로 두고 슬라이스로 참조. 대용량 에셋에서 GC 압력 없음 |
 | 스트리밍 가능 | 청크가 의존 순서대로 정렬되면 다운로드 중 순차 파싱 가능 (`flags` bit1) |
 | 부분 호환 | 모르는 청크에 `SKIPPABLE` 플래그가 있으면 구버전 런타임이 건너뛰고 재생 지속 |
 | 툴체인 비의존 | wasm-bindgen 없이 순수 C ABI. `cargo build --target wasm32-unknown-unknown` 만으로 산출 |
-
-비목표(v0): 실행 중 부분 로드(ID 기반 랜덤 액세스), 암호화, 델타 패치.
 
 ---
 
@@ -92,8 +89,6 @@
 
 `flags.HAS_CRC`가 설정되면 페이로드 뒤에 `u32` CRC-32(원본 바이트 기준)가 붙습니다. 이 4바이트는 `stored_size`에 포함되지 않으며 패딩 앞에 위치합니다.
 
-> DEFLATE 선택 이유: 브라우저 네이티브 `DecompressionStream("deflate-raw")`가 이 형식을 해제합니다. 따라서 JS 폴백 경로는 WASM 없이 검증합니다. 런타임 내부는 `miniz_oxide`(순수 Rust)를 사용해 모듈을 자기완결적으로 유지합니다.
-
 ---
 
 ## 5. 청크 정의
@@ -152,7 +147,7 @@ count × {
 
 ### 5.5 `MCLP` — MovieClip 타임라인 *(필수)*
 
-`IMovieClipPublishJson`에 대응합니다. 포맷의 핵심이며 런타임 성능을 좌우합니다.
+`IMovieClipPublishJson`에 대응합니다.
 
 각 MovieClip 본문은 다음과 같습니다.
 
@@ -174,7 +169,7 @@ u32 place_map_len              // depth_count × total_frame 개
 place_map_len   × i32          // null = -1 (placeObjects 인덱스)
 ```
 
-`controller`와 `placeMap`은 에디터에서 `{[depth]: (number|null)[]}` 형태의 희소 맵입니다. 런타임에서는 이를 `depth × frame` 밀집 `i32` 행렬로 평탄화합니다. 프레임 전진 시 행 단위 순차 접근이 되어 캐시 지역성이 좋아집니다. `null`은 `-1`로 인코딩합니다.
+`controller`와 `placeMap`은 에디터에서 `{[depth]: (number|null)[]}` 형태의 희소 맵입니다. 런타임에서는 이를 `depth × frame` 밀집 `i32` 행렬로 평탄화합니다. `null`은 `-1`로 인코딩합니다.
 
 #### PlaceObject (가변 길이)
 
@@ -204,7 +199,7 @@ recode_len × f32
 
 ### 5.7 `BMAP` / `ATLS` — 비트맵 *(선택)*
 
-`IBitmapPublishJson`에 대응합니다. 에디터의 `buffer`는 RGBA 픽셀 배열(`number[]`)입니다. v0에서는 원본 인코딩(PNG/WebP) 바이트를 그대로 저장하고, 디코딩은 브라우저 `createImageBitmap`에 맡깁니다. 이 방식은 WASM에 PNG 디코더를 넣는 방식보다 모듈이 작습니다.
+`IBitmapPublishJson`에 대응합니다. 에디터의 `buffer`는 RGBA 픽셀 배열(`number[]`)입니다. v0에서는 원본 인코딩(PNG/WebP) 바이트를 그대로 저장하고, 디코딩은 브라우저 `createImageBitmap`에 맡깁니다.
 
 ```
 f32 x_min, x_max, y_min, y_max
@@ -214,7 +209,7 @@ u32 byte_len
 u8[byte_len] data
 ```
 
-`ATLAS_PACKED` 플래그가 설정되면 `ATLS` 청크가 병합 텍스처를 담고, `BMAP` 엔트리는 아틀라스 내 UV 사각형만 갖습니다. v0은 이 기능을 구현하지 않습니다.
+`ATLAS_PACKED` 플래그가 설정되면 `ATLS` 청크가 병합 텍스처를 담고, `BMAP` 엔트리는 아틀라스 내 UV 사각형만 갖습니다.
 
 ### 5.8 `VIDS` / `SNDS` — 비디오·사운드 *(선택)*
 
@@ -245,12 +240,6 @@ u8[sig_len] signature     // [0 .. SIGN 청크 헤더 시작) 전체 바이트�
 ```
 META → STAG → SYMB → CHRS → SHAP → BMAP/ATLS → MCLP → SNDS → VIDS → SCPT → SIGN
 ```
-
-근거는 다음과 같습니다.
-
-1. 캔버스를 띄우려면 스테이지 크기가 먼저 필요합니다.
-2. 첫 프레임을 그리려면 셰이프·비트맵이 준비되어야 합니다.
-3. 사운드·비디오는 첫 프레임 이후에 도착해도 됩니다.
 
 ---
 

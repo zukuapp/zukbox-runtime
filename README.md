@@ -43,7 +43,6 @@ ZWF1 파일 → zwf-format (구조 검증·청크 파싱)
 
 런타임은 명세의 `SNDS` 동기, `SIGN` 서명 검증, `ATLS` 패킹을 구현하지 않습니다.
 파일 헤더의 `SIGNED` 플래그는 서명 검증 결과가 아닙니다.
-구현 경계는 [안전성 문서](docs/safety-and-unsafe.md)에 정리했습니다.
 
 ## 요구 사항
 
@@ -52,8 +51,7 @@ ZWF1 파일 → zwf-format (구조 검증·청크 파싱)
 | 패키지 사용     | Node.js 22 이상 또는 WebAssembly를 지원하는 브라우저 |
 | 소스에서 빌드   | Node.js 22 이상, Rust, `wasm32-unknown-unknown` 타깃 |
 
-설치 패키지는 컴파일된 WASM을 포함합니다. 패키지 소비자에게는 Rust와 설치 후
-빌드가 필요하지 않습니다.
+설치 패키지는 컴파일된 WASM을 포함합니다.
 
 ## 설치
 
@@ -149,7 +147,7 @@ Node.js에서는 설치된 파일을 직접 읽습니다. 브라우저 호스트
 | 증상                                 | 원인과 조치                                                                 |
 | ------------------------------------ | --------------------------------------------------------------------------- |
 | 스트리밍 컴파일이 쓰이지 않음        | 서버가 `.wasm`을 `application/wasm`으로 제공해야 합니다. 다른 MIME 유형은 바이트 로딩으로 처리합니다. |
-| CSP가 WASM 컴파일을 차단함           | `script-src 'self' 'wasm-unsafe-eval'`을 허용합니다. JavaScript `eval`은 필요하지 않습니다. |
+| CSP가 WASM 컴파일을 차단함           | `script-src 'self' 'wasm-unsafe-eval'`을 허용합니다. |
 | `WASM request failed (HTTP …)` 오류  | WASM URL이 실패 응답을 반환했습니다. 파일 배포 경로를 확인합니다.           |
 
 ## 문서와 관련 저장소
@@ -169,7 +167,7 @@ In browsers, it loads the asset from a module-relative URL.
 Serve the asset alongside the module, or pass a URL, response, or byte buffer.
 `wasmUrl` exposes the asset URL.
 The `./wasm` package export resolves the distributed binary.
-This package is the ZWF1 timeline runtime, not the HTML5 ZIP ZWF2 format.
+ZWF2, the HTML5 game ZIP format, uses the `@zuku/zwf` package.
 The host is responsible for rendering and script isolation.
 The `SIGNED` flag is not signature verification.
 
